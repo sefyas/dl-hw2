@@ -42,14 +42,28 @@ void backward_convolutional_bias(matrix delta, matrix db)
 // returns: column matrix
 matrix im2col(image im, int size, int stride)
 {
+    int i, j, k;
     int outw = (im.w-1)/stride + 1;
     int outh = (im.h-1)/stride + 1;
     int rows = im.c*size*size;
     int cols = outw * outh;
     matrix col = make_matrix(rows, cols);
-
-    // TODO: 5.1 - fill in the column matrix
-
+    for (i = 0; i < rows; ++i) {
+        int dx = -(size-1)/2 + i%size;
+        int dy = -(size-1)/2 + (i/size)%size;
+        int ic = i / (size*size);
+        for(j = 0; j < im.h; j += stride){
+            for(k = 0; k < im.w; k += stride){
+                float val = 0;
+                int iw = k + dx;
+                int ih = j + dy;
+                if(ih >= 0 && ih < im.h && iw >= 0 && iw < im.w){
+                    val = im.data[ic*im.w*im.h + ih*im.w + iw];
+                }
+                col.data[i*col.cols + (j/stride)*outw + k/stride] = val;
+            }
+        }
+    }
     return col;
 }
 
@@ -60,13 +74,24 @@ matrix im2col(image im, int size, int stride)
 // image im: image to add elements back into
 void col2im(matrix col, int size, int stride, image im)
 {
+    int i, j, k;
     int outw = (im.w-1)/stride + 1;
-    int outh = (im.h-1)/stride + 1;
     int rows = im.c*size*size;
-    int cols = outw * outh;
-
-    // TODO: 5.2 - add values into image im from the column matrix
-
+    for (i = 0; i < rows; ++i) {
+        int dx = -(size-1)/2 + i%size;
+        int dy = -(size-1)/2 + (i/size)%size;
+        int ic = i / (size*size);
+        for(j = 0; j < im.h; j += stride){
+            for(k = 0; k < im.w; k += stride){
+                int iw = k + dx;
+                int ih = j + dy;
+                float val = col.data[i*col.cols + j/stride*outw + k/stride];
+                if(ih >= 0 && ih < im.h && iw >= 0 && iw < im.w){
+                    im.data[ic*im.w*im.h + ih*im.w + iw] += val;
+                }
+            }
+        }
+    }
 }
 
 // Run a convolutional layer on input
@@ -82,6 +107,7 @@ matrix forward_convolutional_layer(layer l, matrix in)
     for(i = 0; i < in.rows; ++i){
         image example = float_to_image(in.data + i*in.cols, l.width, l.height, l.channels);
         matrix x = im2col(example, l.size, l.stride);
+        //if(i==0) printf("%d %d %d\n", l.w.rows, l.w.cols, x.cols);
         matrix wx = matmul(l.w, x);
         for(j = 0; j < wx.rows*wx.cols; ++j){
             out.data[i*out.cols + j] = wx.data[j];
@@ -89,6 +115,13 @@ matrix forward_convolutional_layer(layer l, matrix in)
         free_matrix(x);
         free_matrix(wx);
     }
+
+    // YSS DONE!
+    if(l.batchnorm) {
+        matrix xnorm = batch_normalize_forward(l, out);
+        out = xnorm;
+    }
+
     forward_convolutional_bias(out, l.b);
     activate_matrix(out, l.activation);
 
@@ -114,6 +147,14 @@ void backward_convolutional_layer(layer l, matrix prev_delta)
 
     gradient_matrix(out, l.activation, delta);
     backward_convolutional_bias(delta, l.db);
+
+    // YSS DONE!
+    if(l.batchnorm){
+        matrix dx = batch_normalize_backward(l, delta);
+        free_matrix(delta);
+        l.delta[0] = delta = dx;
+    }
+
     int i;
     matrix wt = transpose_matrix(l.w);
     for(i = 0; i < in.rows; ++i){
@@ -150,7 +191,13 @@ void backward_convolutional_layer(layer l, matrix prev_delta)
 // float decay: l2 regularization term
 void update_convolutional_layer(layer l, float rate, float momentum, float decay)
 {
-    // TODO: 5.3 Update the weights, similar to the connected layer.
+    // TODO
+    axpy_matrix(rate, l.db, l.b);
+    scal_matrix(momentum, l.db);
+
+    axpy_matrix(-decay, l.w, l.dw);
+    axpy_matrix(rate, l.dw, l.w);
+    scal_matrix(momentum, l.dw);
 }
 
 // Make a new convolutional layer
@@ -179,6 +226,12 @@ layer make_convolutional_layer(int w, int h, int c, int filters, int size, int s
     l.forward  = forward_convolutional_layer;
     l.backward = backward_convolutional_layer;
     l.update   = update_convolutional_layer;
+
+    // YSS DONE!
+    l.x = calloc(1, sizeof(matrix));
+    l.rolling_mean = make_matrix(1, c);
+    l.rolling_variance = make_matrix(1, c);
+
     return l;
 }
 

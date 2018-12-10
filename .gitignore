@@ -8,6 +8,9 @@
 .fuse*
 libuwnet*
 uwnet
+.ipynb_checkpoints
+unit_test
+.gitignore
 
 # OS Generated #
 .DS_Store*
