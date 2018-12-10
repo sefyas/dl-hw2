@@ -15,8 +15,15 @@ void try_mnist()
     n.layers = calloc(3, sizeof(layer));
     n.n = 3;
     //n.layers[0] = make_connected_layer(784, 32, LRELU);
+    /*
+    // without batch normalization
     n.layers[0] = make_convolutional_layer(28, 28, 1, 1, 5, 2, LRELU);
     n.layers[1] = make_convolutional_layer(14, 14, 1, 8, 5, 2, LRELU);
+    n.layers[2] = make_connected_layer(392, 10, SOFTMAX);
+    */
+    // with batch normalization
+    n.layers[0] = make_convolutional_layer(28, 28, 1, 1, 5, 2, LRELU, 1);
+    n.layers[1] = make_convolutional_layer(14, 14, 1, 8, 5, 2, LRELU, 1);
     n.layers[2] = make_connected_layer(392, 10, SOFTMAX);
 
     int batch = 128;
