@@ -35,6 +35,34 @@ void backward_convolutional_bias(matrix delta, matrix db)
     }
 }
 
+
+float im2col_get_pixel(image im, int x, int y, int c)
+{
+
+	if(x >= im.w) return 0;
+	if(y >= im.h) return 0;
+	if(x < 0) return 0;
+	if(y < 0) return 0;
+
+	/*
+	   if(x >= im.w) x = im.w - 1;
+	   if(y >= im.h) y = im.h - 1;
+	   if(x < 0) x = 0;
+	   if(y < 0) y = 0;
+	 */
+	assert(c >= 0);
+	assert(c < im.c);
+	return im.data[x + im.w*(y + im.h*c)];
+}
+
+void col2im_addto_pixel(image im, int x, int y, int c, float val) {
+	if(x >= im.w) return ;
+	if(y >= im.h) return ;
+	if(x < 0) return ;
+	if(y < 0) return ;
+	im.data[x + im.w*(y + im.h*c)] += val;
+}
+
 // Make a column matrix out of an image
 // image im: image to process
 // int size: kernel size for convolution operation
@@ -42,28 +70,30 @@ void backward_convolutional_bias(matrix delta, matrix db)
 // returns: column matrix
 matrix im2col(image im, int size, int stride)
 {
-    int i, j, k;
     int outw = (im.w-1)/stride + 1;
     int outh = (im.h-1)/stride + 1;
     int rows = im.c*size*size;
     int cols = outw * outh;
     matrix col = make_matrix(rows, cols);
-    for (i = 0; i < rows; ++i) {
-        int dx = -(size-1)/2 + i%size;
-        int dy = -(size-1)/2 + (i/size)%size;
-        int ic = i / (size*size);
-        for(j = 0; j < im.h; j += stride){
-            for(k = 0; k < im.w; k += stride){
-                float val = 0;
-                int iw = k + dx;
-                int ih = j + dy;
-                if(ih >= 0 && ih < im.h && iw >= 0 && iw < im.w){
-                    val = im.data[ic*im.w*im.h + ih*im.w + iw];
-                }
-                col.data[i*col.cols + (j/stride)*outw + k/stride] = val;
-            }
-        }
-    }
+
+    // TODO: 5.1 - fill in the column matrix
+	// Check if works correctly
+	int pad = (size%2)?size/2:size/2-1;
+	for (int chan = 0; chan < im.c; ++chan) 
+	{
+		for (int h = -pad, y = 0; y < outh ; h += stride, ++y) {
+			for (int w = -pad, x = 0; x < outw; w += stride, ++x) {
+				for (int i = 0; i < size; ++i) {
+					for (int j = 0; j < size; ++j) {
+						int row = h+i; // row number in image
+						int column = w+j; // column number in image
+						col.data[cols*(size*size)*chan + cols*((size)*i + j) + y*outw + x] = im2col_get_pixel(im, column, row, chan);
+					}
+				}
+			}
+		}
+	}
+
     return col;
 }
 
@@ -74,24 +104,27 @@ matrix im2col(image im, int size, int stride)
 // image im: image to add elements back into
 void col2im(matrix col, int size, int stride, image im)
 {
-    int i, j, k;
     int outw = (im.w-1)/stride + 1;
+    int outh = (im.h-1)/stride + 1;
     int rows = im.c*size*size;
-    for (i = 0; i < rows; ++i) {
-        int dx = -(size-1)/2 + i%size;
-        int dy = -(size-1)/2 + (i/size)%size;
-        int ic = i / (size*size);
-        for(j = 0; j < im.h; j += stride){
-            for(k = 0; k < im.w; k += stride){
-                int iw = k + dx;
-                int ih = j + dy;
-                float val = col.data[i*col.cols + j/stride*outw + k/stride];
-                if(ih >= 0 && ih < im.h && iw >= 0 && iw < im.w){
-                    im.data[ic*im.w*im.h + ih*im.w + iw] += val;
-                }
-            }
-        }
-    }
+    int cols = outw * outh;
+
+    // TODO: 5.2 - add values into image im from the column matrix
+	int pad = (size%2)?size/2:size/2-1;
+	for (int chan = 0; chan < im.c; ++chan) {
+		for (int h = -pad, y = 0; y < outh; h += stride, ++y) {
+			for (int w = -pad, x = 0; x < outw; w += stride, ++x) {
+				for (int i = 0; i < size; ++i) {
+					for (int j = 0; j < size; ++j) {
+						int row = h+i; // row number in image
+						int column = w+j; // column number in image
+						float val = col.data[cols*(size*size)*chan + cols*((size)*i + j) + y*outw + x];
+						col2im_addto_pixel(im, column, row, chan, val);
+					}
+				}
+			}
+		}
+	}	
 }
 
 // Run a convolutional layer on input
@@ -107,7 +140,6 @@ matrix forward_convolutional_layer(layer l, matrix in)
     for(i = 0; i < in.rows; ++i){
         image example = float_to_image(in.data + i*in.cols, l.width, l.height, l.channels);
         matrix x = im2col(example, l.size, l.stride);
-        //if(i==0) printf("%d %d %d\n", l.w.rows, l.w.cols, x.cols);
         matrix wx = matmul(l.w, x);
         for(j = 0; j < wx.rows*wx.cols; ++j){
             out.data[i*out.cols + j] = wx.data[j];
@@ -115,7 +147,7 @@ matrix forward_convolutional_layer(layer l, matrix in)
         free_matrix(x);
         free_matrix(wx);
     }
-
+	
     // YSS DONE!
     if(l.batchnorm) {
         matrix xnorm = batch_normalize_forward(l, out);
@@ -148,7 +180,7 @@ void backward_convolutional_layer(layer l, matrix prev_delta)
     gradient_matrix(out, l.activation, delta);
     backward_convolutional_bias(delta, l.db);
 
-    // YSS DONE!
+	// YSS DONE!
     if(l.batchnorm){
         matrix dx = batch_normalize_backward(l, delta);
         free_matrix(delta);
@@ -191,13 +223,16 @@ void backward_convolutional_layer(layer l, matrix prev_delta)
 // float decay: l2 regularization term
 void update_convolutional_layer(layer l, float rate, float momentum, float decay)
 {
-    // TODO
-    axpy_matrix(rate, l.db, l.b);
-    scal_matrix(momentum, l.db);
-
-    axpy_matrix(-decay, l.w, l.dw);
-    axpy_matrix(rate, l.dw, l.w);
-    scal_matrix(momentum, l.dw);
+    // TODO: 5.3 Update the weights, similar to the connected layer.
+	// update bias
+	axpy_matrix(rate, l.db, l.b);
+	
+	// suppose that before this operation l.dw = -dL/dw + m*delta(prev)
+	axpy_matrix(-decay, l.w, l.dw); // lambda*w
+	axpy_matrix(rate, l.dw, l.w);
+	// now we apply momentum
+	scal_matrix(momentum, l.dw);
+	scal_matrix(momentum, l.db);
 }
 
 // Make a new convolutional layer
@@ -226,12 +261,12 @@ layer make_convolutional_layer(int w, int h, int c, int filters, int size, int s
     l.forward  = forward_convolutional_layer;
     l.backward = backward_convolutional_layer;
     l.update   = update_convolutional_layer;
-
+	
     // YSS DONE!
     l.x = calloc(1, sizeof(matrix));
     l.rolling_mean = make_matrix(1, c);
     l.rolling_variance = make_matrix(1, c);
-
+    
     return l;
 }
 

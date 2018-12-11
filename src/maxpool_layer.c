@@ -4,6 +4,18 @@
 #include <float.h>
 #include "uwnet.h"
 
+/*
+int get_padding(int size) {
+	if (size%2) {
+		return size/2;
+	} else {
+		return size/2-1;
+	}
+}*/
+
+int valid(int row, int column, int rows, int columns) {
+	return 0 <= row && row < rows && 0 <= column && column < columns;
+}
 
 // Run a maxpool layer on input
 // layer l: pointer to layer to run
@@ -11,35 +23,40 @@
 // returns: the result of running the layer
 matrix forward_maxpool_layer(layer l, matrix in)
 {
-    int i, j, k, m;
-    int dx, dy;
-
-    int pad = -(l.size-1)/2;
-
     int outw = (l.width-1)/l.stride + 1;
     int outh = (l.height-1)/l.stride + 1;
     matrix out = make_matrix(in.rows, outw*outh*l.channels);
-    for(i = 0; i < in.rows; ++i){
-        for(j = 0; j < l.channels; ++j){
-            for(k = 0; k < outh; ++k){
-                for(m = 0; m < outw; ++m){
-                    float max = -FLT_MAX;
-                    for(dy = 0; dy < l.size; ++dy){
-                        for(dx = 0; dx < l.size; ++dx){
-                            int inx = m*l.stride + pad + dx;
-                            int iny = k*l.stride + pad + dy;
-                            int index = i*in.cols + j*l.height*l.width + iny*l.width + inx;
-                            if (inx >= 0 && inx < l.width && iny >= 0 && iny < l.height && in.data[index] > max){
-                                max = in.data[index];
-                            }
-                        }
-                    }
-                    int index = i*out.cols + j*outh*outw + k*outw + m;
-                    out.data[index] = max;
-                }
-            }
-        }
-    }
+	
+
+    // TODO: 6.1 - iterate over the input and fill in the output with max values
+	int pad = (l.size%2)?l.size/2:l.size/2-1;
+	for (int r = 0; r < in.rows; ++r) {
+//        image example = float_to_image(in.data + i*in.cols, l.width, l.height, l.channels);
+		for (int chan = 0; chan < l.channels; ++chan) {
+			for (int h = -pad, y = 0; y < outh; ++y, h += l.stride) {
+				for (int w = -pad, x = 0; x < outw; ++x, w += l.stride) {
+					int output_index = r*(out.cols)+chan*(outw*outh)+y*(outw)+x;
+					float max_value = -FLT_MAX;
+					//int max_index = 0;
+					for (int i = 0 ; i < l.size; ++i) {
+						for (int j = 0 ; j < l.size; ++j) {
+							int row = h+i;
+							int column = w+j;
+							int input_index = r*(in.cols)+chan*(l.width*l.height)+row*(l.width)+column;
+							if (valid(row,column,l.height,l.width)) {
+								float val = in.data[input_index];
+								if (val > max_value) {
+					//				max_index = input_index;
+									max_value = val;
+								}
+							}
+						}
+					}
+					out.data[output_index] = max_value;
+				}
+			}
+		}
+	}
 
     l.in[0] = in;
     free_matrix(l.out[0]);
@@ -58,37 +75,47 @@ void backward_maxpool_layer(layer l, matrix prev_delta)
     matrix out   = l.out[0];
     matrix delta = l.delta[0];
 
-    int i, j, k, m;
-    int dx, dy;
-
-    int pad = -(l.size-1)/2;
-
     int outw = (l.width-1)/l.stride + 1;
     int outh = (l.height-1)/l.stride + 1;
-    for(i = 0; i < in.rows; ++i){
-        for(j = 0; j < l.channels; ++j){
-            for(k = 0; k < outh; ++k){
-                for(m = 0; m < outw; ++m){
-                    float max = -FLT_MAX;
-                    int maxi = 0;
-                    for(dy = 0; dy < l.size; ++dy){
-                        for(dx = 0; dx < l.size; ++dx){
-                            int inx = m*l.stride + pad + dx;
-                            int iny = k*l.stride + pad + dy;
-                            int index = i*in.cols + j*l.height*l.width + iny*l.width + inx;
-                            if (inx >= 0 && inx < l.width && iny >= 0 && iny < l.height && in.data[index] > max){
-                                max = in.data[index];
-                                maxi = index;
-                            }
 
-                        }
-                    }
-                    int index = i*out.cols + j*outh*outw + k*outw + m;
-                    prev_delta.data[maxi] = delta.data[index];
-                }
-            }
-        }
-    }
+    // TODO: 6.2 - find the max values in the input again and fill in the
+    // corresponding delta with the delta from the output. This should be
+    // similar to the forward method in structure.
+
+	int pad = (l.size%2)?l.size/2:l.size/2-1;
+	for (int r = 0; r < in.rows; ++r) {
+//        image example = float_to_image(in.data + i*in.cols, l.width, l.height, l.channels);
+		for (int chan = 0; chan < l.channels; ++chan) {
+			for (int h = -pad, y = 0; y < outh; ++y, h += l.stride) {
+				for (int w = -pad, x = 0; x < outw; ++x, w += l.stride) {
+					int output_index = r*(out.cols)+chan*(outw*outh)+y*(outw)+x;
+					float max_value = -FLT_MAX;
+					int max_index = -1;
+					int has_valid = 0;
+					for (int i = 0 ; i < l.size; ++i) {
+						for (int j = 0 ; j < l.size; ++j) {
+							int row = h+i;
+							int column = w+j;
+							int input_index = r*(in.cols)+chan*(l.width*l.height)+row*(l.width)+column;
+							if (valid(row,column,l.width,l.height)) {
+								has_valid = 1;
+								float val = in.data[input_index];
+								if (val > max_value) {
+									max_index = input_index;
+									max_value = val;
+								}
+							}
+						}
+					}
+					if (max_index == -1) {
+						assert(has_valid == 0);
+					}
+					assert(max_index != -1);
+					prev_delta.data[max_index] += delta.data[output_index];
+				}
+			}
+		}
+	}
 }
 
 // Update maxpool layer

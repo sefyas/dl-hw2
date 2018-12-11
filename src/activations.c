@@ -8,7 +8,9 @@
 // ACTIVATION a: function to run
 void activate_matrix(matrix m, ACTIVATION a)
 {
+
     int i, j;
+
     for(i = 0; i < m.rows; ++i){
         float sum = 0;
         for(j = 0; j < m.cols; ++j){

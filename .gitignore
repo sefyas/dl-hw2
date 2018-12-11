@@ -11,6 +11,9 @@ uwnet
 .ipynb_checkpoints
 unit_test
 .gitignore
+cifar
+src/.batch_norm.c.swo
+src_taken from solutions
 
 # OS Generated #
 .DS_Store*

@@ -3,7 +3,9 @@
 #include <stdlib.h>
 #include <assert.h>
 #include <math.h>
-#include <float.h>
+
+
+const float eps = 0.000001f;
 
 matrix mean(matrix x, int spatial)
 {
@@ -33,7 +35,7 @@ matrix variance(matrix x, matrix m, int spatial)
             v.data[j / spatial] += dist2m * dist2m;
         }
     for (i = 0; i < v.cols; ++i) {
-        v.data[i] = v.data[i] / x.rows / spatial;
+        v.data[i] = v.data[i] / (x.rows * spatial);
     }
     return v;
 }
@@ -49,7 +51,7 @@ matrix normalize(matrix x, matrix m, matrix v, int spatial)
         for (j = 0; j < x.cols; j++) {
             index = j / spatial;
             org_val = x.data[i * x.cols + j];
-            norm_val = (org_val - m.data[index]) / sqrt(v.data[index] + FLT_MIN);
+            norm_val = (org_val - m.data[index]) / sqrt(v.data[index] + eps);
             norm.data[i * x.cols + j] = norm_val;
         }
     }
@@ -94,7 +96,7 @@ matrix delta_mean(matrix d, matrix variance, int spatial)
     for(i = 0; i < d.rows; i++) {
         for(j = 0; j < d.cols; j++) {
             index = j / spatial;
-            dm.data[index] += -1 * d.data[i * d.cols + j] / sqrt(variance.data[index] + FLT_MIN);
+            dm.data[index] += -1 * d.data[i * d.cols + j] / sqrt(variance.data[index] + eps);
         }
     }
     return dm;
@@ -112,7 +114,7 @@ matrix delta_variance(matrix d, matrix x, matrix mean, matrix variance, int spat
             index = j / spatial;
             dist2m = x.data[i * d.cols + j] - mean.data[index];
             dv.data[index] += -0.5 * d.data[i * d.cols + j] * dist2m 
-                  / (variance.data[index] + FLT_MIN) / sqrt(variance.data[index] + FLT_MIN);
+                  / ((variance.data[index] + eps) * sqrt(variance.data[index] + eps));
         }
     }
     return dv;
@@ -130,7 +132,7 @@ matrix delta_batch_norm(matrix d, matrix dm, matrix dv, matrix mean, matrix vari
         for(j = 0; j < d.cols; j++) {
             index = j / spatial;
             dist2m = x.data[i * d.cols + j] - mean.data[index];
-            dx.data[i * d.cols + j] += d.data[i * d.cols + j] / sqrt(variance.data[index] + FLT_MIN)
+            dx.data[i * d.cols + j] += d.data[i * d.cols + j] / sqrt(variance.data[index] + eps)
                                        + 2 * dv.data[index] * dist2m / (spatial * d.rows)
                                        + dm.data[index] / (spatial * d.rows);
         }

@@ -51,11 +51,11 @@ void free_matrix(matrix m)
 matrix copy_matrix(matrix m)
 {
     matrix c = make_matrix(m.rows, m.cols);
-    // TODO: 1.1 - Fill in the new matrix
-    int i;
-    for(i = 0; i < m.rows*m.cols; ++i){
-        c.data[i] = m.data[i];
-    }
+	for (int i = 0 ; i < m.rows; ++i) {
+		for (int j = 0 ; j < m.cols; ++j) {
+			c.data[i*m.cols + j] = m.data[i*m.cols + j];
+		}
+	}
     return c;
 }
 
@@ -64,16 +64,12 @@ matrix copy_matrix(matrix m)
 // returns: matrix, result of transposition
 matrix transpose_matrix(matrix m)
 {
-    // TODO: 1.2 - Make a matrix the correct size, fill it in
-    matrix t = make_matrix(m.cols,m.rows);
-
-    int i, j;
-    for(i = 0; i < t.rows; ++i){
-        for(j = 0; j < t.cols; ++j){
-            t.data[i*t.cols + j] = m.data[j*m.cols + i];
-        }
-    }
-
+    matrix t = make_matrix(m.cols, m.rows);
+	for (int i = 0 ; i < m.cols; ++i) {
+		for (int j = 0 ; j < m.rows; ++j) {
+			t.data[i*m.rows + j] = m.data[j*m.cols + i];
+		}
+	}
     return t;
 }
 
@@ -86,10 +82,11 @@ void axpy_matrix(float a, matrix x, matrix y)
     assert(x.cols == y.cols);
     assert(x.rows == y.rows);
     // TODO: 1.3 - Perform the weighted sum, store result back in y
-    int i;
-    for(i = 0; i < x.rows*x.cols; ++i){
-        y.data[i] = a*x.data[i] + y.data[i];
-    }
+	for (int i = 0; i < x.rows; ++i) {
+		for (int j = 0; j < x.cols; ++j) {
+			y.data[i*x.cols + j] = a*x.data[i*x.cols + j] + y.data[i*x.cols + j];
+		}
+	}
 }
 
 // Perform matrix multiplication a*b, return result
@@ -97,18 +94,24 @@ void axpy_matrix(float a, matrix x, matrix y)
 // returns: new matrix that is the result
 matrix matmul(matrix a, matrix b)
 {
-    matrix c = make_matrix(a.rows, b.cols);
+	assert(a.cols == b.rows);
+    matrix mul = make_matrix(a.rows, b.cols);
+	for (int r = 0 ; r < a.rows; ++r) {
+		for (int c = 0 ; c < b.cols ; ++ c) {
+			mul.data[r*b.cols + c] = 0.0;
+		}
+	}
     // TODO: 1.4 - Implement matrix multiplication. Make sure it's fast!
-    int i, j, k;
-    for(i = 0; i < c.rows; ++i){
-        for(k = 0; k < a.cols; ++k){
-            for(j = 0; j < c.cols; ++j){
-                c.data[i*c.cols + j] += a.data[i*a.cols + k]*b.data[k*b.cols + j];
-            }
-        }
-    }
+	for (int r = 0; r < a.rows; ++r) {
+		for (int k = 0; k < a.cols; ++k) {
+			for (int c = 0; c < b.cols; ++c) {
+				mul.data[r*mul.cols + c] += a.data[r*a.cols + k]*b.data[k*b.cols + c];
+			}
+		}
+	}
 
-    return c;
+
+    return mul;
 }
 
 // In-place, element-wise scaling of matrix

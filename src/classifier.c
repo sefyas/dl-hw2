@@ -41,19 +41,38 @@ float cross_entropy_loss(matrix y, layer l)
     for(i = 0; i < y.cols*y.rows; ++i){
         sum += -y.data[i]*log(preds.data[i]);
         delta.data[i] += y.data[i] - preds.data[i];
+	if (!(preds.data[i] == preds.data[i])) {
+		fprintf(stderr, "not ok pred %d\n", i);
+	} else {
+		//fprintf(stderr, "pred #%d %f\n", i, preds.data[i]);
+	}
+
     }
     return sum/y.rows;
 }
 
 void train_image_classifier(net m, data d, int batch, int iters, float rate, float momentum, float decay)
 {
+    // YSS DONE!
+    int round, rounds;
+    rounds = iters / 1000;
+    round = 0;
+
     int e;
     for(e = 0; e < iters; ++e){
         data b = random_batch(d, batch);
         forward_net(m, b.X);
         float err = cross_entropy_loss(b.y, m.layers[m.n-1]);
         fprintf(stderr, "%06d: Loss: %f\n", e, err);
+	assert (!isnan(err));
         backward_net(m);
+
+        // YSS DONE!
+        if (e / 1000 > round) {
+            round++;
+            rate = rate * 0.5;
+        }
+
         update_net(m, rate/batch, momentum, decay);
         free_data(b);
     }

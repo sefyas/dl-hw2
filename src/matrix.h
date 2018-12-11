@@ -1,7 +1,6 @@
 // Include guards and C++ compatibility
 #ifndef MATRIX_H
 #define MATRIX_H
-#include <stdio.h>
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -68,11 +67,6 @@ matrix solve_system(matrix M, matrix b);
 matrix matrix_invert(matrix m);
 matrix transpose_matrix(matrix m);
 void test_matrix();
-
-void write_matrix(matrix m, FILE *fp);
-void read_matrix(matrix m, FILE *fp);
-matrix load_matrix(char *fname);
-void save_matrix(matrix m, char *fname);
 
 #ifdef __cplusplus
 }
