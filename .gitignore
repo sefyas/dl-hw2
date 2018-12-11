@@ -14,6 +14,7 @@ unit_test
 cifar
 src/.batch_norm.c.swo
 src_taken from solutions
+submit.tar.gz
 
 # OS Generated #
 .DS_Store*
