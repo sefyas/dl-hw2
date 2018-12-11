@@ -62,7 +62,10 @@ print("test accuracy:     %f", accuracy_net(m, test))
 # 
 # --- Training with large bur increasinly smaller learning rates ---
 # starting with rate = 0.1 and scaling it by half after each 1000 iterations
+# Without batchnorm
+#    - training accuracy: 71%
+#    - test accuracy:     62%
 # With batchnorm
 #    - training accuracy: 68%
 #    - test accuracy:     66%
-# it is interesting that 
+# again batch normalization has helped with ending up at a better local optima
